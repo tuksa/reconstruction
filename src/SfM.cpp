@@ -1,4 +1,7 @@
 #include "SfM.hpp"
+#include <pcl/visualization/cloud_viewer.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 std::vector<cv::DMatch> SfM::filterMatches(const std::vector<cv::DMatch>& matches, double min_dist) {
     std::vector<cv::DMatch> good_matches;

@@ -1,0 +1,3 @@
+/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/main.dir
+/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/edit_cache.dir
+/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/rebuild_cache.dir

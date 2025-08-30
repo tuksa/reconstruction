@@ -4,6 +4,7 @@
 #include <opencv2/opencv.hpp>
 #include <vector>
 
+
 class SfM {
 public:
     static std::vector<cv::DMatch> filterMatches(const std::vector<cv::DMatch>& matches, double min_dist);
