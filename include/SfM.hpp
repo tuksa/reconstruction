@@ -12,7 +12,9 @@ public:
     static void recoverPoseAndTriangulate(const cv::Mat& essential_matrix,
                                           const std::vector<cv::Point2f>& points1,
                                           const std::vector<cv::Point2f>& points2,
-                                          std::vector<cv::Point3f>& points3D);
+                                          std::vector<cv::Point3f>& points3D,
+                                          cv::Mat& R,
+                                          cv::Mat& t);
 };
 
 #endif // SFM_HPP

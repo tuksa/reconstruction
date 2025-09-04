@@ -20,8 +20,10 @@ cv::Mat SfM::estimateEssentialMatrix(const std::vector<cv::Point2f>& points1, co
 void SfM::recoverPoseAndTriangulate(const cv::Mat& essential_matrix,
                                     const std::vector<cv::Point2f>& points1,
                                     const std::vector<cv::Point2f>& points2,
-                                    std::vector<cv::Point3f>& points3D) {
-    cv::Mat R, t;
+                                    std::vector<cv::Point3f>& points3D,
+                                    cv::Mat& R,
+                                    cv::Mat& t) {
+    // cv::Mat R, t;
     cv::recoverPose(essential_matrix, points1, points2, R, t);
 
     cv::Mat proj1 = cv::Mat::eye(3, 4, CV_64F);

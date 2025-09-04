@@ -1,7 +1,6 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include "SfM.hpp"
-#include "BundleAdjustment.hpp"
 #include <iostream>
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/pcl_visualizer.h>
@@ -63,68 +62,50 @@ int main() {
     cv::waitKey(0); // Wait for a key press to close the window
     cv::destroyAllWindows();
 
-    // Initial reconstruction
+    // Estimate Essential Matrix
     cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
-    cv::Mat R, t;
-    // Initialize camera matrices with default values
-    // cv::Mat R = cv::Mat::eye(3, 3, CV_64F);  // 3x3 identity matrix
-    // cv::Mat t = cv::Mat::zeros(3, 1, CV_64F); // 3x1 zero vector
 
+    cv::Mat R, t;
+
+    // Recover pose and triangulate
     std::vector<cv::Point3f> points3D;
     SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, points3D, R, t);
-
-    // Print initial reconstruction stats
-    // std::cout << "Initial 3D points: " << points3D.size() << std::endl;
 
     std::cout << "Recovered Rotation:\n" << R << std::endl;
     std::cout << "Recovered Translation:\n" << t << std::endl;
     std::cout << "Number of 3D points: " << points3D.size() << std::endl;
 
+    // // Output 3D points
+    // for (const auto& point : points3D) {
+    //     std::cout << "3D Point: " << point << std::endl;
+    // }
 
-    // Apply bundle adjustment
-    try {
-        std::cout << "Applying bundle adjustment..." << std::endl;
-        BundleAdjuster::adjust(points3D, points1, points2, R, t);
-        std::cout << "Bundle adjustment completed." << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "Bundle adjustment failed: " << e.what() << std::endl;
-    }
+    // // Create a PCL point cloud
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    // for (const auto& point : points3D) {
+    //     cloud->points.emplace_back(point.x, point.y, point.z);
+    // }
+    // cloud->width = cloud->points.size();
+    // cloud->height = 1; // Unorganized point cloud
+    // cloud->is_dense = false;
 
-    // Filter points based on reprojection error
-    std::vector<cv::Point3f> filtered_points3D;
-    const double max_error = 2.0; // pixels
+    // // Visualize the point cloud
+    // pcl::visualization::CloudViewer viewer("3D Point Cloud Viewer");
+    // viewer.showCloud(cloud);
 
-    for (size_t i = 0; i < points3D.size(); ++i) {
-        // Project point
-        cv::Mat pt3d = (cv::Mat_<double>(4,1) << 
-            points3D[i].x, points3D[i].y, points3D[i].z, 1);
+    // // Keep the viewer open until the user closes it
+    // while (!viewer.wasStopped()) {}
 
-        cv::Mat pt3d1 = (cv::Mat_<double>(3,1) << 
-            points3D[i].x, points3D[i].y, points3D[i].z);
 
-   
-        cv::Mat projected1 = (cv::Mat::eye(3,4,CV_64F) * pt3d);
-        cv::Mat projected2 = (R * pt3d1 + t);
-
-        // Calculate reprojection error
-        double error1 = cv::norm(points1[i] - cv::Point2f(projected1.at<double>(0)/projected1.at<double>(2),
-                                                         projected1.at<double>(1)/projected1.at<double>(2)));
-        double error2 = cv::norm(points2[i] - cv::Point2f(projected2.at<double>(0)/projected2.at<double>(2),
-                                                         projected2.at<double>(1)/projected2.at<double>(2)));
-
-        if (error1 < max_error && error2 < max_error) {
-            filtered_points3D.push_back(points3D[i]);
-        }
-    }
-
-    std::cout << "Points after filtering: " << filtered_points3D.size() << std::endl;
-
-    // Create PCL point cloud with filtered points
+    //
+    // Create a PCL point cloud with better error handling
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    
-    for (const auto& point : filtered_points3D) {
+
+    // Filter and add valid points only
+    for (const auto& point : points3D) {
         if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
-            if (abs(point.z) < 100.0) {
+            // Optional: filter out points that are too far
+            if (abs(point.z) < 100.0) {  // Adjust threshold as needed
                 cloud->points.emplace_back(point.x, point.y, point.z);
             }
         }
@@ -136,18 +117,45 @@ int main() {
 
     std::cout << "Final point cloud size: " << cloud->points.size() << std::endl;
 
-    // Visualize point cloud if not empty
-    if (!cloud->empty()) {
-        pcl::visualization::CloudViewer viewer("Optimized Point Cloud");
-        viewer.showCloud(cloud);
-        
-        while (!viewer.wasStopped()) {
-            // Wait for viewer to close
-        }
-    } else {
-        std::cerr << "Error: Empty point cloud after optimization" << std::endl;
-        return -1;
+    if (cloud->points.empty()) {
+        std::cout << "Warning: Point cloud is empty!" << std::endl;
+        // return -1;
     }
+
+    // Use PCL Visualizer instead of CloudViewer
+    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D Point Cloud"));
+    viewer->setBackgroundColor(0, 0, 0);
+    viewer->addPointCloud<pcl::PointXYZ>(cloud, "sample cloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "sample cloud");
+    viewer->addCoordinateSystem(1.0);
+    viewer->initCameraParameters();
+
+    // Keep the viewer running
+    while (!viewer->wasStopped()) {
+        viewer->spinOnce(100);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    // // Test with known points first
+    // pcl::PointCloud<pcl::PointXYZ>::Ptr test_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    // test_cloud->points.emplace_back(0, 0, 0);
+    // test_cloud->points.emplace_back(1, 0, 0);
+    // test_cloud->points.emplace_back(0, 1, 0);
+    // test_cloud->points.emplace_back(0, 0, 1);
+    // test_cloud->width = 4;
+    // test_cloud->height = 1;
+    // test_cloud->is_dense = false;
+
+    // pcl::visualization::PCLVisualizer::Ptr test_viewer(new pcl::visualization::PCLVisualizer("Test Cloud"));
+    // test_viewer->setBackgroundColor(0, 0, 0);
+    // test_viewer->addPointCloud<pcl::PointXYZ>(test_cloud, "test");
+    // test_viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "test");
+    // test_viewer->addCoordinateSystem(1.0);
+
+    // while (!test_viewer->wasStopped()) {
+    //     test_viewer->spinOnce(100);
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // }
 
     std::cout << "SfM process completed successfully." << std::endl;
     return 0;
