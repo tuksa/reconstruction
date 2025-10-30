@@ -1,154 +1,131 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include "SfM.hpp"
-#include "BundleAdjustment.hpp"
 #include <iostream>
 #include <pcl/visualization/cloud_viewer.h>
 #include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/surface/mls.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/surface/poisson.h>
+#include <pcl/io/pcd_io.h>
+#include <filesystem>
+#include <vector>
+#include <map>
 
 #include <thread>
 #include <chrono>
 
+// Frame structure to hold per-image data
+struct Frame {
+    cv::Mat image;
+    std::vector<cv::KeyPoint> keypoints;
+    cv::Mat descriptors;
+    cv::Mat R = cv::Mat::eye(3, 3, CV_64F);
+    cv::Mat t = cv::Mat::zeros(3, 1, CV_64F);
+};
+
 int main() {
-    // Load two images
-    std::string image1 = "dinoRing/dinoR0024.png";
-    std::string image2 = "dinoRing/dinoR0025.png";
-    cv::Mat img1 = cv::imread(image1, cv::IMREAD_GRAYSCALE);
-    cv::Mat img2 = cv::imread(image2, cv::IMREAD_GRAYSCALE);
-    // cv::Mat img1 = cv::imread("image1.jpg", cv::IMREAD_GRAYSCALE);
-    // cv::Mat img2 = cv::imread("image2.jpg", cv::IMREAD_GRAYSCALE);
-
-    if (img1.empty() || img2.empty()) {
-        std::cerr << "Error: Could not load images!" << std::endl;
-        return -1;
-    }
-
-    // Step 1: Detect keypoints and compute descriptors
-    cv::Ptr<cv::ORB> orb = cv::ORB::create();
-    std::vector<cv::KeyPoint> keypoints1, keypoints2;
-    cv::Mat descriptors1, descriptors2;
-
-    orb->detectAndCompute(img1, cv::noArray(), keypoints1, descriptors1);
-    orb->detectAndCompute(img2, cv::noArray(), keypoints2, descriptors2);
-
-    // Step 2: Match descriptors
-    cv::BFMatcher matcher(cv::NORM_HAMMING);
-    std::vector<cv::DMatch> matches;
-    matcher.match(descriptors1, descriptors2, matches);
-
-    // Filter matches
-    double min_dist = 100;
-    for (const auto& match : matches) {
-        if (match.distance < min_dist) min_dist = match.distance;
-    }
-    std::vector<cv::DMatch> good_matches = SfM::filterMatches(matches, min_dist);
-
-    // Extract points
-    std::vector<cv::Point2f> points1, points2;
-    for (const auto& match : good_matches) {
-        points1.push_back(keypoints1[match.queryIdx].pt);
-        points2.push_back(keypoints2[match.trainIdx].pt);
-    }
-
-    // Visualize matches
-    cv::Mat img_matches;
-    cv::drawMatches(img1, keypoints1, img2, keypoints2, good_matches, img_matches,
-                    cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(),
-                    cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-
-    // Display the matches
-    cv::imshow("Matched Keypoints", img_matches);
-    cv::waitKey(0); // Wait for a key press to close the window
-    cv::destroyAllWindows();
-
-    // Initial reconstruction
-    cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
-    cv::Mat R, t;
-    // Initialize camera matrices with default values
-    // cv::Mat R = cv::Mat::eye(3, 3, CV_64F);  // 3x3 identity matrix
-    // cv::Mat t = cv::Mat::zeros(3, 1, CV_64F); // 3x1 zero vector
-
-    std::vector<cv::Point3f> points3D;
-    SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, points3D, R, t);
-
-    // Print initial reconstruction stats
-    // std::cout << "Initial 3D points: " << points3D.size() << std::endl;
-
-    std::cout << "Recovered Rotation:\n" << R << std::endl;
-    std::cout << "Recovered Translation:\n" << t << std::endl;
-    std::cout << "Number of 3D points: " << points3D.size() << std::endl;
-
-
-    // Apply bundle adjustment
-    try {
-        std::cout << "Applying bundle adjustment..." << std::endl;
-        BundleAdjuster::adjust(points3D, points1, points2, R, t);
-        std::cout << "Bundle adjustment completed." << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "Bundle adjustment failed: " << e.what() << std::endl;
-    }
-
-    // Filter points based on reprojection error
-    std::vector<cv::Point3f> filtered_points3D;
-    const double max_error = 2.0; // pixels
-
-    for (size_t i = 0; i < points3D.size(); ++i) {
-        // Project point
-        cv::Mat pt3d = (cv::Mat_<double>(4,1) << 
-            points3D[i].x, points3D[i].y, points3D[i].z, 1);
-
-        cv::Mat pt3d1 = (cv::Mat_<double>(3,1) << 
-            points3D[i].x, points3D[i].y, points3D[i].z);
-
-   
-        cv::Mat projected1 = (cv::Mat::eye(3,4,CV_64F) * pt3d);
-        cv::Mat projected2 = (R * pt3d1 + t);
-
-        // Calculate reprojection error
-        double error1 = cv::norm(points1[i] - cv::Point2f(projected1.at<double>(0)/projected1.at<double>(2),
-                                                         projected1.at<double>(1)/projected1.at<double>(2)));
-        double error2 = cv::norm(points2[i] - cv::Point2f(projected2.at<double>(0)/projected2.at<double>(2),
-                                                         projected2.at<double>(1)/projected2.at<double>(2)));
-
-        if (error1 < max_error && error2 < max_error) {
-            filtered_points3D.push_back(points3D[i]);
+    // Load image sequence
+    std::vector<Frame> frames;
+    std::string image_dir = "dinoRing/";
+    
+    // Read all images in directory
+    for (const auto& entry : std::filesystem::directory_iterator(image_dir)) {
+        if (entry.path().extension() == ".png") {
+            Frame frame;
+            frame.image = cv::imread(entry.path().string(), cv::IMREAD_GRAYSCALE);
+            if (frame.image.empty()) {
+                std::cerr << "Failed to load: " << entry.path() << std::endl;
+                continue;
+            }
+            frames.push_back(frame);
         }
     }
 
-    std::cout << "Points after filtering: " << filtered_points3D.size() << std::endl;
+    if (frames.size() < 2) {
+        std::cerr << "Not enough images found!" << std::endl;
+        return -1;
+    }
 
-    // Create PCL point cloud with filtered points
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-    
-    for (const auto& point : filtered_points3D) {
-        if (std::isfinite(point.x) && std::isfinite(point.y) && std::isfinite(point.z)) {
-            if (abs(point.z) < 100.0) {
-                cloud->points.emplace_back(point.x, point.y, point.z);
+    // Initialize detector
+    cv::Ptr<cv::ORB> orb = cv::ORB::create(2000);  // Increased features
+
+    // Detect features in all frames
+    for (auto& frame : frames) {
+        orb->detectAndCompute(frame.image, cv::noArray(), 
+                            frame.keypoints, frame.descriptors);
+    }
+
+    // Initialize point cloud
+    pcl::PointCloud<pcl::PointXYZ>::Ptr global_cloud(
+        new pcl::PointCloud<pcl::PointXYZ>);
+
+    // Process sequential pairs
+    for (size_t i = 0; i < frames.size() - 1; ++i) {
+        // Match features between consecutive frames
+        cv::BFMatcher matcher(cv::NORM_HAMMING);
+        std::vector<cv::DMatch> matches;
+        matcher.match(frames[i].descriptors, frames[i+1].descriptors, matches);
+
+        // Filter matches
+        double min_dist = 100;
+        for (const auto& match : matches) {
+            if (match.distance < min_dist) min_dist = match.distance;
+        }
+        std::vector<cv::DMatch> good_matches = SfM::filterMatches(matches, min_dist);
+
+        // Extract matched points
+        std::vector<cv::Point2f> points1, points2;
+        for (const auto& match : good_matches) {
+            points1.push_back(frames[i].keypoints[match.queryIdx].pt);
+            points2.push_back(frames[i+1].keypoints[match.trainIdx].pt);
+        }
+
+        // Estimate pose and triangulate
+        cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
+        std::vector<cv::Point3f> points3D;
+        cv::Mat R_rel, t_rel;
+        SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, 
+                                      points3D, R_rel, t_rel);
+
+        // Update global pose
+        frames[i+1].R = R_rel * frames[i].R;
+        frames[i+1].t = R_rel * frames[i].t + t_rel;
+
+        // Add points to global cloud
+        for (const auto& point : points3D) {
+            if (std::isfinite(point.x) && std::isfinite(point.y) && 
+                std::isfinite(point.z) && abs(point.z) < 100.0) {
+                global_cloud->points.emplace_back(point.x, point.y, point.z);
             }
         }
+
+        std::cout << "Processed frames " << i << " and " << i+1 
+                  << ": " << points3D.size() << " points" << std::endl;
     }
 
-    cloud->width = cloud->points.size();
-    cloud->height = 1;
-    cloud->is_dense = false;
+    // Update cloud properties
+    global_cloud->width = global_cloud->points.size();
+    global_cloud->height = 1;
+    global_cloud->is_dense = false;
 
-    std::cout << "Final point cloud size: " << cloud->points.size() << std::endl;
+    // Visualize result
+    pcl::visualization::PCLVisualizer::Ptr viewer(
+        new pcl::visualization::PCLVisualizer("Multi-view Reconstruction"));
+    viewer->setBackgroundColor(0, 0, 0);
+    viewer->addPointCloud<pcl::PointXYZ>(global_cloud, "reconstruction");
+    viewer->setPointCloudRenderingProperties(
+        pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "reconstruction");
+    viewer->addCoordinateSystem(1.0);
+    viewer->initCameraParameters();
 
-    // Visualize point cloud if not empty
-    if (!cloud->empty()) {
-        pcl::visualization::CloudViewer viewer("Optimized Point Cloud");
-        viewer.showCloud(cloud);
-        
-        while (!viewer.wasStopped()) {
-            // Wait for viewer to close
-        }
-    } else {
-        std::cerr << "Error: Empty point cloud after optimization" << std::endl;
-        return -1;
+    while (!viewer->wasStopped()) {
+        viewer->spinOnce(100);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    std::cout << "SfM process completed successfully." << std::endl;
     return 0;
 }
