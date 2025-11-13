@@ -63,48 +63,50 @@ int main() {
     pcl::PointCloud<pcl::PointXYZ>::Ptr global_cloud(
         new pcl::PointCloud<pcl::PointXYZ>);
 
-    // Process sequential pairs
-    for (size_t i = 0; i < frames.size() - 1; ++i) {
-        // Match features between consecutive frames
-        cv::BFMatcher matcher(cv::NORM_HAMMING);
-        std::vector<cv::DMatch> matches;
-        matcher.match(frames[i].descriptors, frames[i+1].descriptors, matches);
+    // Match every image against all other images
+    for (size_t i = 0; i < 10; ++i) {
+        for (size_t j = i + 1; j < 10; ++j) {
+            // Match features between frames[i] and frames[j]
+            cv::BFMatcher matcher(cv::NORM_HAMMING);
+            std::vector<cv::DMatch> matches;
+            matcher.match(frames[i].descriptors, frames[j].descriptors, matches);
 
-        // Filter matches
-        double min_dist = 100;
-        for (const auto& match : matches) {
-            if (match.distance < min_dist) min_dist = match.distance;
-        }
-        std::vector<cv::DMatch> good_matches = SfM::filterMatches(matches, min_dist);
-
-        // Extract matched points
-        std::vector<cv::Point2f> points1, points2;
-        for (const auto& match : good_matches) {
-            points1.push_back(frames[i].keypoints[match.queryIdx].pt);
-            points2.push_back(frames[i+1].keypoints[match.trainIdx].pt);
-        }
-
-        // Estimate pose and triangulate
-        cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
-        std::vector<cv::Point3f> points3D;
-        cv::Mat R_rel, t_rel;
-        SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, 
-                                      points3D, R_rel, t_rel);
-
-        // Update global pose
-        frames[i+1].R = R_rel * frames[i].R;
-        frames[i+1].t = R_rel * frames[i].t + t_rel;
-
-        // Add points to global cloud
-        for (const auto& point : points3D) {
-            if (std::isfinite(point.x) && std::isfinite(point.y) && 
-                std::isfinite(point.z) && abs(point.z) < 100.0) {
-                global_cloud->points.emplace_back(point.x, point.y, point.z);
+            // Filter matches
+            double min_dist = 100;
+            for (const auto& match : matches) {
+                if (match.distance < min_dist) min_dist = match.distance;
             }
-        }
+            std::vector<cv::DMatch> good_matches = SfM::filterMatches(matches, min_dist);
 
-        std::cout << "Processed frames " << i << " and " << i+1 
-                  << ": " << points3D.size() << " points" << std::endl;
+            // Extract matched points
+            std::vector<cv::Point2f> points1, points2;
+            for (const auto& match : good_matches) {
+                points1.push_back(frames[i].keypoints[match.queryIdx].pt);
+                points2.push_back(frames[j].keypoints[match.trainIdx].pt);
+            }
+
+            // Estimate pose and triangulate
+            cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
+            std::vector<cv::Point3f> points3D;
+            cv::Mat R_rel, t_rel;
+            SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, 
+                                          points3D, R_rel, t_rel);
+
+            // Update global pose for frame[j]
+            frames[j].R = R_rel * frames[i].R;
+            frames[j].t = R_rel * frames[i].t + t_rel;
+
+            // Add points to global cloud
+            for (const auto& point : points3D) {
+                if (std::isfinite(point.x) && std::isfinite(point.y) && 
+                    std::isfinite(point.z) && abs(point.z) < 100.0) {
+                    global_cloud->points.emplace_back(point.x, point.y, point.z);
+                }
+            }
+
+            std::cout << "Processed frames " << i << " and " << j 
+                      << ": " << points3D.size() << " points" << std::endl;
+        }
     }
 
     // Update cloud properties
