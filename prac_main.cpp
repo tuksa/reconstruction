@@ -10,10 +10,35 @@
 #include <thread>
 #include <chrono>
 
+cv::Mat buildCameraMatrix() {
+    // Reasonable defaults when no calibration is available:
+    // assume fx = fy ≈ max(width, height) and principal point at image centre.
+    // double fx = std::max(img.cols, img.rows);
+    // double fy = fx;
+    // double cx = img.cols / 2.0;
+    // double cy = img.rows / 2.0;
+
+    double fx = 2905.88; 
+    double fy = 2905.88; 
+    double cx = 1416;
+    double cy = 1064;
+
+
+    return (cv::Mat_<double>(3, 3) <<
+        fx,  0, cx,
+         0, fy, cy,
+         0,  0,  1);
+}
+
 int main() {
     // Load two images
-    std::string image1 = "dinoRing/dinoR0024.png";
-    std::string image2 = "dinoRing/dinoR0025.png";
+    // std::string image1 = "dinoRing/dinoR0024.png";
+    // std::string image2 = "dinoRing/dinoR0025.png";
+
+    std::string image1 = "/home/chiroma/Documents/projects/openMVG_Build/ImageDataset_SceauxCastle/images/100_7101.JPG";
+    std::string image2 = "/home/chiroma/Documents/projects/openMVG_Build/ImageDataset_SceauxCastle/images/100_7102.JPG";
+
+
     cv::Mat img1 = cv::imread(image1, cv::IMREAD_GRAYSCALE);
     cv::Mat img2 = cv::imread(image2, cv::IMREAD_GRAYSCALE);
     // cv::Mat img1 = cv::imread("image1.jpg", cv::IMREAD_GRAYSCALE);
@@ -24,8 +49,11 @@ int main() {
         return -1;
     }
 
+    cv::Mat K = buildCameraMatrix();
+    std::cout << "Camera matrix K:\n" << K << "\n\n";
+
     // Step 1: Detect keypoints and compute descriptors
-    cv::Ptr<cv::ORB> orb = cv::ORB::create();
+    cv::Ptr<cv::ORB> orb = cv::ORB::create(5000);
     std::vector<cv::KeyPoint> keypoints1, keypoints2;
     cv::Mat descriptors1, descriptors2;
 
@@ -63,13 +91,13 @@ int main() {
     cv::destroyAllWindows();
 
     // Estimate Essential Matrix
-    cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2);
+    cv::Mat essential_matrix = SfM::estimateEssentialMatrix(points1, points2, K);
 
     cv::Mat R, t;
 
     // Recover pose and triangulate
     std::vector<cv::Point3f> points3D;
-    SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, points3D, R, t);
+    SfM::recoverPoseAndTriangulate(essential_matrix, points1, points2, points3D, K, R, t);
 
     std::cout << "Recovered Rotation:\n" << R << std::endl;
     std::cout << "Recovered Translation:\n" << t << std::endl;

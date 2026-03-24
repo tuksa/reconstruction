@@ -105,12 +105,11 @@ int main() {
         new pcl::PointCloud<pcl::PointXYZ>);
 
     // Match every image against all other images
-    for (size_t i = 0; i < frames.size(); ++i) {
-        for (size_t j = i + 1; j < frames.size(); ++j) {
+    for (size_t i = 1; i < 2; ++i) {
             // Match features between frames[i] and frames[j]
             cv::BFMatcher matcher(cv::NORM_HAMMING);
             std::vector<cv::DMatch> matches;
-            matcher.match(frames[i].descriptors, frames[j].descriptors, matches);
+            matcher.match(frames[0].descriptors, frames[i].descriptors, matches);
 
             // Filter matches
             double min_dist = 50;
@@ -122,8 +121,8 @@ int main() {
             // Extract matched points
             std::vector<cv::Point2f> points1, points2;
             for (const auto& match : good_matches) {
-                points1.push_back(frames[i].keypoints[match.queryIdx].pt);
-                points2.push_back(frames[j].keypoints[match.trainIdx].pt);
+                points1.push_back(frames[0].keypoints[match.queryIdx].pt);
+                points2.push_back(frames[i].keypoints[match.trainIdx].pt);
             }
 
             // Estimate pose and triangulate
@@ -134,8 +133,8 @@ int main() {
                                           points3D, R_rel, t_rel);
 
             // Update global pose for frame[j]
-            frames[j].R = R_rel * frames[i].R;
-            frames[j].t = R_rel * frames[i].t + t_rel;
+            frames[i].R = R_rel * frames[0].R;
+            frames[i].t = R_rel * frames[0].t + t_rel;
 
             // Add points to global cloud
             for (const auto& point : points3D) {
@@ -145,9 +144,8 @@ int main() {
                 }
             }
 
-            std::cout << "Processed frames " << i << " and " << j 
+            std::cout << "Processed frames " << 0 << " and " << i 
                       << ": " << points3D.size() << " points" << std::endl;
-        }
     }
 
     // Update cloud properties

@@ -13,23 +13,37 @@ std::vector<cv::DMatch> SfM::filterMatches(const std::vector<cv::DMatch>& matche
     return good_matches;
 }
 
-cv::Mat SfM::estimateEssentialMatrix(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2) {
-    return cv::findEssentialMat(points1, points2, 1.0, cv::Point2d(0, 0), cv::RANSAC);
+cv::Mat SfM::estimateEssentialMatrix(const std::vector<cv::Point2f>& points1, const std::vector<cv::Point2f>& points2, const cv::Mat& K) {
+    // return cv::findEssentialMat(points1, points2, K, 1.0, cv::Point2d(0, 0), cv::RANSAC);
+    cv::Mat inlier_mask;
+    return cv::findEssentialMat(
+        points1, points2,
+        K,
+        cv::RANSAC,
+        0.999,   // confidence
+        1.0,     // RANSAC pixel threshold
+        inlier_mask);
 }
 
 void SfM::recoverPoseAndTriangulate(const cv::Mat& essential_matrix,
                                     const std::vector<cv::Point2f>& points1,
                                     const std::vector<cv::Point2f>& points2,
                                     std::vector<cv::Point3f>& points3D,
+                                    cv::Mat& K,
                                     cv::Mat& R,
                                     cv::Mat& t) {
     // cv::Mat R, t;
-    cv::recoverPose(essential_matrix, points1, points2, R, t);
+    cv::recoverPose(essential_matrix, points1, points2, K, R, t);
 
     cv::Mat proj1 = cv::Mat::eye(3, 4, CV_64F);
     cv::Mat proj2(3, 4, CV_64F);
+
+    proj1 = K * proj1;
+
     R.copyTo(proj2(cv::Rect(0, 0, 3, 3)));
     t.copyTo(proj2(cv::Rect(3, 0, 1, 3)));
+
+    proj2 = K * proj2;
 
     cv::Mat points4D;
     cv::triangulatePoints(proj1, proj2, points1, points2, points4D);
