@@ -13,7 +13,7 @@ public:
                                           const std::vector<cv::Point2f>& points1,
                                           const std::vector<cv::Point2f>& points2,
                                           std::vector<cv::Point3f>& points3D,
-                                          cv::Mat& K,
+                                          cv::Mat K,
                                           cv::Mat& R,
                                           cv::Mat& t);
 };
