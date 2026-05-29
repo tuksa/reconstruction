@@ -29,6 +29,26 @@ struct Frame {
     cv::Mat t = cv::Mat::zeros(3, 1, CV_64F);
 };
 
+cv::Mat buildCameraMatrix() {
+    // Reasonable defaults when no calibration is available:
+    // assume fx = fy ≈ max(width, height) and principal point at image centre.
+    // double fx = std::max(img.cols, img.rows);
+    // double fy = fx;
+    // double cx = img.cols / 2.0;
+    // double cy = img.rows / 2.0;
+
+    double fx = 2905.88; 
+    double fy = 2905.88; 
+    double cx = 1416;
+    double cy = 1064;
+
+
+    return (cv::Mat_<double>(3, 3) <<
+        fx,  0, cx,
+         0, fy, cy,
+         0,  0,  1);
+}
+
 
 std::vector<Frame> load_image_sequence(const std::string& directory_path) {
     std::vector<Frame> frames;
@@ -87,6 +107,9 @@ int main() {
     //     std::cerr << "Not enough images found!" << std::endl;
     //     return -1;
     // }
+
+    cv::Mat K = buildCameraMatrix();
+    std::cout << "Camera matrix K:\n" << K << "\n\n";
 
     frames = load_image_sequence(image_dir);
 

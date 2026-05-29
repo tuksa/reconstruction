@@ -15,7 +15,7 @@ void BundleAdjuster::adjust(std::vector<cv::Point3f>& points3D,
     std::cout << "Initial R: " << R << std::endl;
     std::cout << "Initial t: " << t << std::endl;
     
-    // Convert R to angle-axis
+    // Convegitrt R to angle-axis
     cv::Mat rvec;
     cv::Rodrigues(R, rvec);
     camera2[0] = rvec.at<double>(0);

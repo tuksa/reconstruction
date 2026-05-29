@@ -65,6 +65,11 @@ int main() {
     std::vector<cv::DMatch> matches;
     matcher.match(descriptors1, descriptors2, matches);
 
+    if (descriptors1.empty() || descriptors2.empty()) {
+        std::cerr << "Error: No descriptors found!" << std::endl;
+        return -1;
+    }
+
     // Filter matches
     double min_dist = 100;
     for (const auto& match : matches) {

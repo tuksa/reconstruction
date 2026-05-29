@@ -17,10 +17,16 @@
 cv::Mat buildCameraMatrix(const cv::Mat& img) {
     // Reasonable defaults when no calibration is available:
     // assume fx = fy ≈ max(width, height) and principal point at image centre.
-    double fx = std::max(img.cols, img.rows);
-    double fy = fx;
-    double cx = img.cols / 2.0;
-    double cy = img.rows / 2.0;
+    // double fx = std::max(img.cols, img.rows);
+    // double fy = fx;
+    // double cx = img.cols / 2.0;
+    // double cy = img.rows / 2.0;
+
+    double fx = 2905.88; 
+    double fy = 2905.88; 
+    double cx = 1416;
+    double cy = 1064;
+
 
     return (cv::Mat_<double>(3, 3) <<
         fx,  0, cx,
