@@ -1,0 +1,2 @@
+set(__QT_DEPLOY_TARGET_prac_main_FILE /home/emmanuel/Documents/Project/reconstruction/build/prac_main)
+set(__QT_DEPLOY_TARGET_prac_main_TYPE EXECUTABLE)

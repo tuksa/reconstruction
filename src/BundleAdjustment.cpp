@@ -1,4 +1,4 @@
-#include "../include/BundleAdjustment.hpp"
+#include "BundleAdjustment.hpp"
 
 void BundleAdjuster::adjust(std::vector<cv::Point3f>& points3D,
                            const std::vector<cv::Point2f>& points1,

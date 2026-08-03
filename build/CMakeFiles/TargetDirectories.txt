@@ -1,3 +1,7 @@
-/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/main.dir
-/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/edit_cache.dir
-/home/chiroma/Documents/projects/reconstruction/build/CMakeFiles/rebuild_cache.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/prac_main.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/edit_cache.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/rebuild_cache.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/list_install_components.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/install.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/install/local.dir
+/home/emmanuel/Documents/Project/reconstruction/build/CMakeFiles/install/strip.dir

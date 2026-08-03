@@ -8,8 +8,9 @@ set(CMAKE_DEPENDS_LANGUAGES
 
 # The set of dependency files which are needed:
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/chiroma/Documents/projects/reconstruction/main.cpp" "CMakeFiles/main.dir/main.cpp.o" "gcc" "CMakeFiles/main.dir/main.cpp.o.d"
-  "/home/chiroma/Documents/projects/reconstruction/src/SfM.cpp" "CMakeFiles/main.dir/src/SfM.cpp.o" "gcc" "CMakeFiles/main.dir/src/SfM.cpp.o.d"
+  "/home/emmanuel/Documents/Project/reconstruction/prac_main.cpp" "CMakeFiles/prac_main.dir/prac_main.cpp.o" "gcc" "CMakeFiles/prac_main.dir/prac_main.cpp.o.d"
+  "/home/emmanuel/Documents/Project/reconstruction/src/SfM.cpp" "CMakeFiles/prac_main.dir/src/SfM.cpp.o" "gcc" "CMakeFiles/prac_main.dir/src/SfM.cpp.o.d"
+  "" "prac_main" "gcc" "CMakeFiles/prac_main.dir/link.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

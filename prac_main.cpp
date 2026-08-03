@@ -12,8 +12,8 @@
 
 int main() {
     // Load two images
-    std::string image1 = "dinoRing/dinoR0024.png";
-    std::string image2 = "dinoRing/dinoR0025.png";
+    std::string image1 = "../dinoRing/dinoR0024.png";
+    std::string image2 = "../dinoRing/dinoR0025.png";
     cv::Mat img1 = cv::imread(image1, cv::IMREAD_GRAYSCALE);
     cv::Mat img2 = cv::imread(image2, cv::IMREAD_GRAYSCALE);
     // cv::Mat img1 = cv::imread("image1.jpg", cv::IMREAD_GRAYSCALE);
